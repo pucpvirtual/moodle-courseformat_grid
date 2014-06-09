@@ -183,7 +183,10 @@ class format_grid extends format_base {
         return $this->settings;
     }
 
-    /**
+
+
+
+   /**
      * Gets the name for the provided section.
      *
      * @param stdClass $section The section.
@@ -347,6 +350,10 @@ class format_grid extends format_base {
                     'default' => $courseconfig->coursedisplay,
                     'type' => PARAM_INT
                 ),
+                'extraelements' => array(
+                    'default' => get_config('format_grid', 'extraelements'),
+                    'type' => PARAM_INT,
+                ),
                 'imagecontainerwidth' => array(
                     'default' => get_config('format_grid', 'defaultimagecontainerwidth'),
                     'type' => PARAM_INT
@@ -448,6 +455,20 @@ class format_grid extends format_base {
                 )
             );
             if (has_capability('format/grid:changeimagecontainersize', $coursecontext)) {
+
+                  $courseformatoptionsedit['extraelements'] = array(
+                    'label' => new lang_string('setextraelements', 'format_grid'),
+                    'help' => 'setextraelements',
+                    'help_component' => 'format_grid',
+                    'element_type' => 'select',
+                    'element_attributes' => array(
+                        array(1 => new lang_string('setnotice', 'format_grid'),                            
+                              2 => new lang_string('setprofile', 'format_grid'),          
+                              3 => new lang_string('setnotice_profile', 'format_grid'),          
+                              4 => new lang_string('set_noelements', 'format_grid'))
+                    )
+                );
+
                 $courseformatoptionsedit['imagecontainerwidth'] = array(
                     'label' => new lang_string('setimagecontainerwidth', 'format_grid'),
                     'help' => 'setimagecontainerwidth',
@@ -1683,6 +1704,10 @@ class format_grid extends format_base {
     public static function get_instance($courseid) {
         return new format_grid('grid', $courseid);
     }
+
+   
+
+
 }
 
 /**
