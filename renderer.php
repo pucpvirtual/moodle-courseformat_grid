@@ -34,7 +34,8 @@ class format_grid_renderer extends format_section_renderer_base {
     private $courseformat; // Our course format object as defined in lib.php.
     private $settings; // Settings array.
     private $shadeboxshownarray = array(); // Value of 1 = not shown, value of 2 = shown - to reduce ambiguity in JS.
-
+    //private $tcsettings; 
+    
     /**
      * Constructor method, calls the parent constructor - MDL-21097
      *
@@ -101,12 +102,23 @@ class format_grid_renderer extends format_section_renderer_base {
             $streditsummary = '';
         }
 
+
+        
         echo html_writer::start_tag('div', array('id' => 'gridmiddle-column'));
         echo $this->output->skip_link_target();
 
         $modinfo = get_fast_modinfo($course);
         $sections = $modinfo->get_section_info_all();
 
+        /**iconera**/
+
+        $this->print_menu_acitivity($course);
+        
+        /*** USER PROFILE**/
+        $this->print_profile_block();
+        echo html_writer::tag('div','',array('class'=>'clearfix'));
+
+       
         // Start at 1 to skip the summary block or include the summary block if it's in the grid display.
         $this->topic0_at_top = $summarystatus->showsummary == 1;
         if ($this->topic0_at_top) {
@@ -115,6 +127,9 @@ class format_grid_renderer extends format_section_renderer_base {
             // For the purpose of the grid shade box shown array topic 0 is not shown.
             $this->shadeboxshownarray[0] = 1;
         }
+         /*** last news**/
+         $this->print_noticeboard($course);
+
         echo html_writer::start_tag('div', array('id' => 'gridiconcontainer', 'role' => 'navigation',
             'aria-label' => get_string('gridimagecontainer', 'format_grid')));
         echo html_writer::start_tag('ul', array('class' => 'gridicons'));
@@ -144,6 +159,7 @@ class format_grid_renderer extends format_section_renderer_base {
             'aria-label' => get_string('nextsection', 'format_grid')));
         echo $this->start_section_list();
         // If currently moving a file then show the current clipboard.
+
         $this->make_block_show_clipboard_if_file_moving($course);
 
         // Print Section 0 with general activities.
@@ -759,4 +775,146 @@ class format_grid_renderer extends format_section_renderer_base {
 
         return $sectionsedited;
     }
+
+
+// desde aqui la ultima version
+
+/**
+     * Outputs the latest news item.
+     * @global stdClass $OUTPUT Output renderer instance.
+     * @param stdClass $course The course to use.
+     */
+    private function print_noticeboard($course) {
+        global $OUTPUT;
+
+        if($this->settings['extraelements'] == 4   || $this->settings['extraelements']  ==  2 ) return;
+
+
+        if ($forum = forum_get_course_forum($course->id, 'news')) {
+            $cm = get_coursemodule_from_instance('forum', $forum->id);
+            $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+
+            if(count(forum_get_discussions($cm, "d.timemodified DESC", true, -1,1, $userlastmodified=false, -1, 0))>0){
+              echo forum_print_latest_discussions($course, $forum, 1, 'plain', '', -1, -1, -1, 100, $cm);
+            }
+        }
+    }
+
+
+    private function print_othercourse($course) {
+        global $PAGE,$DB;
+        $editing = $PAGE->user_is_editing();
+         $links = $DB->get_records('format_grid_link',array('courseid'=>$course->id),'position');
+
+            echo html_writer::start_tag('div', array('id' => 'morecourse'));
+                echo html_writer::start_tag('ul',array('class'=>'courses'));
+
+                foreach($links as $l){
+                        echo html_writer::start_tag('li');
+                            echo html_writer::link(new moodle_url('/course/view.php',array('id'=>$l->link)),$l->name);
+                        echo html_writer::end_tag('li');
+                }
+
+                if($editing){
+                    echo html_writer::start_tag('li');
+                        echo html_writer::link($this->courseformat->grid_moodle_url('editlink.php', array('courseid'=>$course->id)),get_string('addlink','format_grid'));
+                        echo html_writer::link($this->courseformat->grid_moodle_url('orderlink.php', array('courseid'=>$course->id)),get_string('edit'));
+                    echo html_writer::end_tag('li');
+                }
+
+                echo html_writer::end_tag('ul');
+                echo html_writer::tag('div','',array('class'=>'clearfix'));    
+            echo html_writer::end_tag('div');
+
+   
+        
+    }
+
+    private function print_menu_acitivity($course){
+        global $DB,$PAGE;
+
+        $editing = $PAGE->user_is_editing();
+        $context = context_course::instance($course->id);
+        $menuAct = $DB->get_records('format_grid_boton',array('courseid'=>$course->id),'position');
+       
+
+       if($this->settings['extraelements'] == 4   || $this->settings['extraelements']  ==  1 ) $class = '' ;
+       else $class = 'w-profile';
+
+        if(count($menuAct) > 0 ||$editing ){
+            echo html_writer::start_tag('div', array('id' => 'shadebox', 'class'=>$class));        
+            echo html_writer::start_tag('div', array('id' => 'shadebox_content'));
+            echo html_writer::start_tag('ul',array('class'=>"icons"));
+
+                foreach($menuAct as $act){
+
+                    if(empty($act->url)){
+
+                        $sql = "SELECT cm.id, m.name
+                                FROM {course_modules} cm 
+                                INNER JOIN {modules} m ON m.id = cm.module
+                                WHERE cm.id = ?";
+
+                        $params = array($act->activityid);
+                        $dataact = $DB->get_record_sql($sql,$params);
+                        $acturl  = new moodle_url('/mod/'.$dataact->name.'/view.php',array('id'=>$dataact->id));
+                    }else{
+                         $acturl = "http://".$DB->get_field('format_grid_url','url',array('id'=>$act->url));
+                    }
+
+                    echo html_writer::start_tag('li');
+                        echo html_writer::start_tag('div',array('style'=>""));
+                            echo html_writer::start_tag('a',array('href'=>$acturl));
+                                echo html_writer::empty_tag('img', array('src' => $act->imagepath,'style'=>"max-width:70px;"));
+                            echo html_writer::end_tag('a');
+                            if($editing){
+                            echo html_writer::start_tag('div');
+                                    echo html_writer::link($this->courseformat->grid_moodle_url('editicon.php', array('courseid'=>$course->id,'editid'=>$act->id)),get_string('edit'));
+                                    echo html_writer::link($this->courseformat->grid_moodle_url('delete.php', array('courseid'=>$course->id,'id'=>$act->id)),get_string('delete'),array('class'=>'delete'));
+                            echo html_writer::end_tag('div');
+                          }
+                        echo html_writer::end_tag('div');
+                    echo html_writer::end_tag('li');
+
+                }
+
+            if($editing){ 
+                echo html_writer::start_tag('li');
+                        echo html_writer::tag('div','',array('style'=>"background:#c9c9c9;height:85px;width:85px;"));
+                        echo html_writer::link($this->courseformat->grid_moodle_url('editicon.php', array('courseid'=>$course->id)),get_string('addicon','format_grid'));
+                        echo html_writer::link($this->courseformat->grid_moodle_url('orderimage.php', array('courseid'=>$course->id)),get_string('reorder','format_grid'));
+                echo html_writer::end_tag('li');
+            }  
+            echo html_writer::end_tag('ul');
+            echo html_writer::end_tag('div');
+            echo html_writer::tag('div', '&nbsp;', array('class' => 'clearer'));
+            echo html_writer::end_tag('div');
+        }
+    }
+
+
+private function print_profile_block(){
+        global $USER;
+
+        if($this->settings['extraelements'] == 4   || $this->settings['extraelements']  ==  1 ) return;
+
+        $usercontext = get_context_instance(CONTEXT_USER, $USER->id);
+        $pictururl = new moodle_url('/pluginfile.php/'.$usercontext->id.'/user/icon/bcpcampus/f1', array('rev'=>$USER->picture));
+
+        echo html_writer::start_tag('div',array('class'=>'inner-profiel-block'));
+            echo html_writer::start_tag('div');
+                echo html_writer::empty_tag('img',array('src'=>$pictururl));
+            echo html_writer::end_tag('div');
+            echo html_writer::start_tag('div');
+                echo $USER->firstname .' '. $USER->lastname;
+            echo html_writer::end_tag('div');
+        echo html_writer::end_tag('div');
+    }
+
+
+
+
+
+
+
 }
